@@ -1,0 +1,21 @@
+{
+  "name": "node-file-manager",
+  "version": "1.0.0",
+  "description": "Technical requirements https://github.com/AlreadyBored/nodejs-assignments/blob/main/assignments/file-manager/assignment.md",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:n": "node src/index.js --username=Dmitri"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dmitri-gaponenko/node-file-manager.git"
+  },
+  "author": "dmitri-gaponenko",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dmitri-gaponenko/node-file-manager/issues"
+  },
+  "homepage": "https://github.com/dmitri-gaponenko/node-file-manager#readme"
+}
