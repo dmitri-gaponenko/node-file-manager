@@ -3,7 +3,7 @@ import path from 'path';
 import { stdin, stdout } from 'process';
 import { EOL, homedir } from 'os';
 import fs from 'fs/promises';
-import { createReadStream } from 'fs';
+import { createReadStream, createWriteStream } from 'fs';
 
 let workingDirectory = homedir();
 const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -88,6 +88,62 @@ const renameFile = async (pathToFile, fileName) => {
   }
 };
 
+const copyFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve, reject) => {
+  const sourceFilePath = path.join(workingDirectory, pathToFile);
+  const targetFilePath = path.join(workingDirectory, pathToNewDirectory, path.basename(sourceFilePath));
+
+  const readStream = createReadStream(sourceFilePath, 'utf-8');
+  readStream.on('error', (error) => {
+    console.log('Error', error.message);
+    reject();
+  });
+
+  const writeStream = createWriteStream(targetFilePath, 'utf-8');
+  writeStream.on('error', (error) => {
+    console.log('Error', error.message);
+    reject();
+  });
+  writeStream.on('close', () => {
+    resolve();
+  });
+
+  readStream.pipe(writeStream);
+});
+
+const moveFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve, reject) => {
+  const sourceFilePath = path.join(workingDirectory, pathToFile);
+  const targetFilePath = path.join(workingDirectory, pathToNewDirectory, path.basename(sourceFilePath));
+
+  const readStream = createReadStream(sourceFilePath, 'utf-8');
+  readStream.on('error', (error) => {
+    console.log('Error', error.message);
+    reject();
+  });
+
+  const writeStream = createWriteStream(targetFilePath, 'utf-8');
+  writeStream.on('error', (error) => {
+    console.log('Error', error.message);
+    reject();
+  });
+  writeStream.on('close', async () => {
+    await deleteFile(pathToFile);
+    resolve();
+  });
+
+  readStream.pipe(writeStream);
+});
+
+const deleteFile = async (pathToFile) => {
+  const fileToRemove = path.join(workingDirectory, pathToFile);
+
+  try {
+    await fs.rm(fileToRemove);
+  } catch (err) {
+    console.log('Error', err.message);
+    throw new Error('FS operation failed');
+  }
+};
+
 const handle = async (text) => {
   const [command, ...arg] = text.split(' ');
 
@@ -110,7 +166,16 @@ const handle = async (text) => {
       break;
     case 'rn':
       await renameFile(arg[0], arg[1]);
-      break;  
+      break;
+    case 'cp':
+      await copyFile(arg[0], arg[1]);
+      break;
+    case 'mv':
+      await moveFile(arg[0], arg[1]);
+      break;
+    case 'rm':
+      await deleteFile(arg.join(' '));
+      break;
 
     default:
       break;
