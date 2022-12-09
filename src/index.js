@@ -3,6 +3,7 @@ import path from 'path';
 import { stdin, stdout } from 'process';
 import { EOL, homedir } from 'os';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 
 let workingDirectory = homedir();
 const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -47,6 +48,46 @@ const list = async (filesFolderPath) => {
   }
 };
 
+const readFile = (pathToFile) => new Promise((resolve, reject) => {
+  const stream = createReadStream(path.join(workingDirectory, pathToFile), 'utf-8');
+
+  let data = '';
+
+  stream.on('data', chunk => data += chunk);
+  stream.on('end', () => {
+    console.log(data);
+    resolve();
+  });
+  stream.on('error', (error) => { 
+    console.log('Error', error.message);
+    reject();
+  });
+});
+
+const createFile = async (fileName) => {
+  const filepath = path.join(workingDirectory, fileName);
+
+  try {
+    await fs.writeFile(filepath, '', { flag: 'wx' });
+  } catch (err) {
+    console.log('Error:', err);
+    throw new Error('FS operation failed');
+  }
+};
+
+// TODO: check if newFilePath exists
+const renameFile = async (pathToFile, fileName) => {
+  const oldFilePath = path.join(workingDirectory, pathToFile);
+  const newFilePath = path.join(workingDirectory, fileName);
+
+  try {
+    await fs.rename(oldFilePath, newFilePath);
+  } catch (err) {
+    console.log('Error:', err);
+    throw new Error('FS operation failed');
+  }
+};
+
 const handle = async (text) => {
   const [command, ...arg] = text.split(' ');
 
@@ -60,6 +101,15 @@ const handle = async (text) => {
     case 'cd':
       workingDirectory = path.join(workingDirectory, arg.join(' '));
       // TODO: check folder/file is exist
+      break;
+    case 'cat':
+      await readFile(arg.join(' '));
+      break;
+    case 'add':
+      await createFile(arg.join(' '));
+      break;
+    case 'rn':
+      await renameFile(arg[0], arg[1]);
       break;  
 
     default:
