@@ -1,9 +1,12 @@
 import readline from 'readline';
 import path from 'path';
 import { stdin, stdout } from 'process';
-import { EOL, homedir } from 'os';
+import { EOL, homedir, cpus, userInfo, arch } from 'os';
 import fs from 'fs/promises';
 import { createReadStream, createWriteStream } from 'fs';
+import { createHash } from 'crypto';
+import { pipeline } from 'stream';
+import zlib from 'zlib';
 
 let workingDirectory = homedir();
 const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -144,6 +147,65 @@ const deleteFile = async (pathToFile) => {
   }
 };
 
+const osInfo = (arg) => {
+  switch (arg) {
+    case '--EOL':
+      console.log(JSON.stringify(EOL));
+      break;
+    case '--cpus':
+      console.log(
+        cpus().map((cpu) => {
+          return { model: cpu.model, speed: cpu.speed };
+        })
+      );
+      break;
+    case '--homedir':
+      console.log(homedir());
+      break;
+    case '--username':
+      console.log(userInfo().username);
+      break;
+    case '--architecture':
+      console.log(arch());
+      break;
+
+    default:
+      break;
+  }
+};
+
+const calculateHash = async (pathToFile) => {
+  const hash = createHash('sha256');
+  const filePath = path.join(workingDirectory, pathToFile);
+  const contents = await fs.readFile(filePath, { encoding: 'utf8' });
+
+  console.log(hash.update(contents).digest('hex'));
+};
+
+const compressFile = async (pathToFile, pathToDestination) => {
+  const input = createReadStream(path.join(workingDirectory, pathToFile), 'utf-8');
+  const output = createWriteStream(path.join(workingDirectory, `${pathToDestination}.br`));
+  const brotli = zlib.createBrotliCompress();
+
+  pipeline(input, brotli, output, (err) => {
+    if (err) {
+      console.log(err);
+    }
+  });
+};
+
+const decompressFile = async (pathToFile, pathToDestination) => {
+  const input = createReadStream(path.join(workingDirectory, pathToFile));
+  const output = createWriteStream(path.join(workingDirectory, `${pathToDestination}`), 'utf-8');
+  const brotli = zlib.createBrotliDecompress();
+
+  pipeline(input, brotli, output, (err) => {
+    if (err) {
+      console.log(err);
+    }
+  });
+};
+
 const handle = async (text) => {
   const [command, ...arg] = text.split(' ');
 
@@ -175,6 +237,18 @@ const handle = async (text) => {
       break;
     case 'rm':
       await deleteFile(arg.join(' '));
+      break;
+    case 'os':
+      osInfo(arg.join(' '));
+      break;
+    case 'hash':
+      await calculateHash(arg.join(' '));
+      break;
+    case 'compress':
+      await compressFile(arg[0], arg[1]);
+      break;
+    case 'decompress':
+      await decompressFile(arg[0], arg[1]);
       break;
 
     default:
