@@ -1,14 +1,14 @@
 import readline from 'readline';
 import path from 'path';
-import { stdin, stdout } from 'process';
+import { stdin, stdout, cwd, chdir } from 'process';
 import { EOL, homedir, cpus, userInfo, arch } from 'os';
 import fs from 'fs/promises';
-import { createReadStream, createWriteStream } from 'fs';
+import { createReadStream, createWriteStream, constants } from 'fs';
 import { createHash } from 'crypto';
 import { pipeline } from 'stream';
 import zlib from 'zlib';
 
-let workingDirectory = homedir();
+chdir(homedir());
 const rl = readline.createInterface({ input: stdin, output: stdout });
 
 const getUserNameFromArgs = () => {
@@ -35,9 +35,9 @@ const finish = () => {
 };
 
 // TODO: add sorting
-const list = async (filesFolderPath) => {
+const list = async () => {
   try {
-    const filesFolder = await fs.readdir(filesFolderPath, {
+    const filesFolder = await fs.readdir(cwd(), {
       withFileTypes: true,
     });
     console.table(
@@ -46,13 +46,17 @@ const list = async (filesFolderPath) => {
       })
     );
   } catch (err) {
-    // throw new Error('FS operation failed');
+    console.log('Operation failed');
     return null;
   }
 };
 
 const readFile = (pathToFile) => new Promise((resolve, reject) => {
-  const stream = createReadStream(path.join(workingDirectory, pathToFile), 'utf-8');
+  if (!pathToFile) {
+    console.log('Invalid input');
+    resolve();
+  }
+  const stream = createReadStream(pathToFile, 'utf-8');
 
   let data = '';
 
@@ -62,38 +66,62 @@ const readFile = (pathToFile) => new Promise((resolve, reject) => {
     resolve();
   });
   stream.on('error', (error) => { 
-    console.log('Error', error.message);
     reject();
   });
 });
 
 const createFile = async (fileName) => {
-  const filepath = path.join(workingDirectory, fileName);
+  if (!fileName) {
+    console.log('Invalid input');
+    return;
+  }
+  const filepath = path.join(cwd(), fileName);
 
   try {
     await fs.writeFile(filepath, '', { flag: 'wx' });
   } catch (err) {
-    console.log('Error:', err);
-    throw new Error('FS operation failed');
+    console.log('Operation failed');
   }
 };
 
-// TODO: check if newFilePath exists
+const isExist = async (filepath) => {
+  try {
+    await fs.access(filepath, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const renameFile = async (pathToFile, fileName) => {
-  const oldFilePath = path.join(workingDirectory, pathToFile);
-  const newFilePath = path.join(workingDirectory, fileName);
+  if (!pathToFile || !fileName) {
+    console.log('Invalid input');
+    return;
+  }
+
+  const oldFilePath = pathToFile;
+  const newFilePath = path.join(path.dirname(oldFilePath), fileName);
+
+  if (isExist(newFilePath)) {
+    console.log(`Operation failed. File with name '${fileName}' already exists.`);
+    return;
+  }
 
   try {
     await fs.rename(oldFilePath, newFilePath);
   } catch (err) {
-    console.log('Error:', err);
-    throw new Error('FS operation failed');
+    console.log('Operation failed');
   }
 };
 
 const copyFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve, reject) => {
-  const sourceFilePath = path.join(workingDirectory, pathToFile);
-  const targetFilePath = path.join(workingDirectory, pathToNewDirectory, path.basename(sourceFilePath));
+  if (!pathToFile || !pathToNewDirectory) {
+    console.log('Invalid input');
+    return;
+  }
+
+  const sourceFilePath = pathToFile;
+  const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
 
   const readStream = createReadStream(sourceFilePath, 'utf-8');
   readStream.on('error', (error) => {
@@ -114,8 +142,13 @@ const copyFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve,
 });
 
 const moveFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve, reject) => {
-  const sourceFilePath = path.join(workingDirectory, pathToFile);
-  const targetFilePath = path.join(workingDirectory, pathToNewDirectory, path.basename(sourceFilePath));
+  if (!pathToFile || !pathToNewDirectory) {
+    console.log('Invalid input');
+    return;
+  }
+
+  const sourceFilePath = path.join(pathToFile);
+  const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
 
   const readStream = createReadStream(sourceFilePath, 'utf-8');
   readStream.on('error', (error) => {
@@ -137,13 +170,14 @@ const moveFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve,
 });
 
 const deleteFile = async (pathToFile) => {
-  const fileToRemove = path.join(workingDirectory, pathToFile);
-
+  if (!pathToFile) {
+    console.log('Invalid input');
+    return;
+  }
   try {
-    await fs.rm(fileToRemove);
+    await fs.rm(pathToFile);
   } catch (err) {
-    console.log('Error', err.message);
-    throw new Error('FS operation failed');
+    console.log('Operation failed');
   }
 };
 
@@ -175,53 +209,84 @@ const osInfo = (arg) => {
 };
 
 const calculateHash = async (pathToFile) => {
-  const hash = createHash('sha256');
-  const filePath = path.join(workingDirectory, pathToFile);
-  const contents = await fs.readFile(filePath, { encoding: 'utf8' });
+  if (!pathToFile) {
+    console.log('Invalid input');
+    return;
+  }
+  try {
+    const hash = createHash('sha256');
+    const contents = await fs.readFile(pathToFile, { encoding: 'utf8' });
 
-  console.log(hash.update(contents).digest('hex'));
+    console.log(hash.update(contents).digest('hex'));
+  } catch (err) {
+    console.log('Operation failed');
+  }
 };
 
 const compressFile = async (pathToFile, pathToDestination) => {
-  const input = createReadStream(path.join(workingDirectory, pathToFile), 'utf-8');
-  const output = createWriteStream(path.join(workingDirectory, `${pathToDestination}.br`));
+  if (!pathToFile || !pathToDestination) {
+    console.log('Invalid input');
+    return;
+  }
+  const input = createReadStream(pathToFile, 'utf-8');
+  const output = createWriteStream(pathToDestination);
   const brotli = zlib.createBrotliCompress();
 
   pipeline(input, brotli, output, (err) => {
     if (err) {
-      console.log(err);
+      console.log('Operation failed');
     }
   });
 };
 
 const decompressFile = async (pathToFile, pathToDestination) => {
-  const input = createReadStream(path.join(workingDirectory, pathToFile));
-  const output = createWriteStream(path.join(workingDirectory, `${pathToDestination}`), 'utf-8');
+  if (!pathToFile || !pathToDestination) {
+    console.log('Invalid input');
+    return;
+  }
+  const input = createReadStream(pathToFile);
+  const output = createWriteStream(pathToDestination, 'utf-8');
   const brotli = zlib.createBrotliDecompress();
 
+  // TODO: change pipeline to use stream/promises
   pipeline(input, brotli, output, (err) => {
     if (err) {
-      console.log(err);
+      console.log('Operation failed');
     }
   });
 };
 
 const handle = async (text) => {
-  const [command, ...arg] = text.split(' ');
+  const [command, ...arg] = text.trim().split(' ');
 
   switch (command) {
     case 'ls':
-      await list(workingDirectory);
+      await list();
       break;
     case 'up':
-      workingDirectory = path.join(workingDirectory, '../');
+      try {
+        chdir('../');
+      } catch (err) {
+        console.log('Operation failed');
+      }
       break;
     case 'cd':
-      workingDirectory = path.join(workingDirectory, arg.join(' '));
-      // TODO: check folder/file is exist
+      if (!arg.join(' ')) {
+        console.log('Invalid input');
+      } else {
+        try {
+          chdir(arg.join(' '));
+        } catch (err) {
+          console.log('Operation failed');
+        }
+      }
       break;
     case 'cat':
-      await readFile(arg.join(' '));
+      try {
+        await readFile(arg.join(' '));
+      } catch (err) {
+        console.log('Operation failed');
+      }
       break;
     case 'add':
       await createFile(arg.join(' '));
@@ -252,6 +317,7 @@ const handle = async (text) => {
       break;
 
     default:
+      console.log('Invalid input');
       break;
   }
 
@@ -270,7 +336,7 @@ rl.on('SIGINT', () => {
 });
 
 const printWorkingDirectoryMessage = () => {
-  console.log(`You are currently in ${workingDirectory}`);
+  console.log(`You are currently in ${cwd()}`);
 };
 
 const runApp = () => {
