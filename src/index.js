@@ -5,7 +5,7 @@ import { EOL, homedir, cpus, userInfo, arch } from 'os';
 import fs from 'fs/promises';
 import { createReadStream, createWriteStream, constants } from 'fs';
 import { createHash } from 'crypto';
-import { pipeline } from 'stream';
+import { pipeline } from 'stream/promises';
 import zlib from 'zlib';
 
 chdir(homedir());
@@ -66,8 +66,9 @@ const readFile = (pathToFile) => new Promise((resolve, reject) => {
     console.log(data);
     resolve();
   });
-  stream.on('error', (error) => { 
-    reject();
+  stream.on('error', (error) => {
+    console.log('Operation failed');
+    resolve();
   });
 });
 
@@ -115,60 +116,42 @@ const renameFile = async (pathToFile, fileName) => {
   }
 };
 
-const copyFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve, reject) => {
+const copyFile = async (pathToFile, pathToNewDirectory) => {
   if (!pathToFile || !pathToNewDirectory) {
     console.log('Invalid input');
     return;
   }
+  try {
+    const sourceFilePath = pathToFile;
+    const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
 
-  const sourceFilePath = pathToFile;
-  const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
+    const readStream = createReadStream(sourceFilePath, 'utf-8');
+    const writeStream = createWriteStream(targetFilePath, 'utf-8');
 
-  const readStream = createReadStream(sourceFilePath, 'utf-8');
-  readStream.on('error', (error) => {
-    console.log('Error', error.message);
-    reject();
-  });
+    await pipeline(readStream, writeStream);
+  } catch (err) {
+    console.log('Operation failed');
+  }
+};
 
-  const writeStream = createWriteStream(targetFilePath, 'utf-8');
-  writeStream.on('error', (error) => {
-    console.log('Error', error.message);
-    reject();
-  });
-  writeStream.on('close', () => {
-    resolve();
-  });
-
-  readStream.pipe(writeStream);
-});
-
-const moveFile = async (pathToFile, pathToNewDirectory) => new Promise((resolve, reject) => {
+const moveFile = async (pathToFile, pathToNewDirectory) => {
   if (!pathToFile || !pathToNewDirectory) {
     console.log('Invalid input');
     return;
   }
+  try {
+    const sourceFilePath = path.join(pathToFile);
+    const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
 
-  const sourceFilePath = path.join(pathToFile);
-  const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
+    const readStream = createReadStream(sourceFilePath, 'utf-8');
+    const writeStream = createWriteStream(targetFilePath, 'utf-8');
 
-  const readStream = createReadStream(sourceFilePath, 'utf-8');
-  readStream.on('error', (error) => {
-    console.log('Error', error.message);
-    reject();
-  });
-
-  const writeStream = createWriteStream(targetFilePath, 'utf-8');
-  writeStream.on('error', (error) => {
-    console.log('Error', error.message);
-    reject();
-  });
-  writeStream.on('close', async () => {
+    await pipeline(readStream, writeStream);
     await deleteFile(pathToFile);
-    resolve();
-  });
-
-  readStream.pipe(writeStream);
-});
+  } catch (err) {
+    console.log('Operation failed');
+  }
+};
 
 const deleteFile = async (pathToFile) => {
   if (!pathToFile) {
@@ -190,7 +173,7 @@ const osInfo = (arg) => {
     case '--cpus':
       console.log(
         cpus().map((cpu) => {
-          return { model: cpu.model, speed: cpu.speed };
+          return { model: cpu.model, speed: (cpu.speed / 1000).toFixed(2)};
         })
       );
       break;
@@ -205,6 +188,7 @@ const osInfo = (arg) => {
       break;
 
     default:
+      console.log('Invalid input');
       break;
   }
 };
@@ -229,15 +213,15 @@ const compressFile = async (pathToFile, pathToDestination) => {
     console.log('Invalid input');
     return;
   }
-  const input = createReadStream(pathToFile, 'utf-8');
-  const output = createWriteStream(pathToDestination);
-  const brotli = zlib.createBrotliCompress();
+  try {
+    const input = createReadStream(pathToFile, 'utf-8');
+    const output = createWriteStream(pathToDestination);
+    const brotli = zlib.createBrotliCompress();
 
-  pipeline(input, brotli, output, (err) => {
-    if (err) {
-      console.log('Operation failed');
-    }
-  });
+    await pipeline(input, brotli, output);
+  } catch (err) {
+    console.log('Operation failed');
+  }
 };
 
 const decompressFile = async (pathToFile, pathToDestination) => {
@@ -245,16 +229,15 @@ const decompressFile = async (pathToFile, pathToDestination) => {
     console.log('Invalid input');
     return;
   }
-  const input = createReadStream(pathToFile);
-  const output = createWriteStream(pathToDestination, 'utf-8');
-  const brotli = zlib.createBrotliDecompress();
+  try {
+    const input = createReadStream(pathToFile);
+    const output = createWriteStream(pathToDestination, 'utf-8');
+    const brotli = zlib.createBrotliDecompress();
 
-  // TODO: change pipeline to use stream/promises
-  pipeline(input, brotli, output, (err) => {
-    if (err) {
-      console.log('Operation failed');
-    }
-  });
+    await pipeline(input, brotli, output);
+  } catch (err) {
+    console.log('Operation failed');
+  }
 };
 
 const handle = async (text) => {
@@ -283,11 +266,7 @@ const handle = async (text) => {
       }
       break;
     case 'cat':
-      try {
-        await readFile(arg.join(' '));
-      } catch (err) {
-        console.log('Operation failed');
-      }
+      await readFile(arg.join(' '));
       break;
     case 'add':
       await createFile(arg.join(' '));
