@@ -34,14 +34,15 @@ const finish = () => {
   process.exit();
 };
 
-// TODO: add sorting
 const list = async () => {
   try {
-    const filesFolder = await fs.readdir(cwd(), {
+    const filesInFolder = await fs.readdir(cwd(), {
       withFileTypes: true,
     });
+    const files = filesInFolder.filter((a) => a.isFile()).sort();
+    const folders = filesInFolder.filter((a) => a.isDirectory()).sort();
     console.table(
-      filesFolder.map((file) => {
+      folders.concat(files).map((file) => {
         return { Name: file.name, Type: file.isFile() ? 'file' : 'directory' };
       })
     );
