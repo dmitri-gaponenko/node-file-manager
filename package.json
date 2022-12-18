@@ -5,8 +5,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "start:n": "node src/index.js --username=Dmitri"
+    "start": "node src/index.js"
   },
   "repository": {
     "type": "git",
