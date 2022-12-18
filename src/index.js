@@ -104,8 +104,8 @@ const renameFile = async (pathToFile, fileName) => {
   const oldFilePath = pathToFile;
   const newFilePath = path.join(path.dirname(oldFilePath), fileName);
 
-  if (isExist(newFilePath)) {
-    console.log(`Operation failed. File with name '${fileName}' already exists.`);
+  if (await isExist(newFilePath)) {
+    console.log(`Operation failed. File '${fileName}' already exists.`);
     return;
   }
 
@@ -125,6 +125,11 @@ const copyFile = async (pathToFile, pathToNewDirectory) => {
     const sourceFilePath = pathToFile;
     const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
 
+    if (await isExist(targetFilePath)) {
+      console.log(`Operation failed. File '${targetFilePath}' already exists.`);
+      return;
+    }
+
     const readStream = createReadStream(sourceFilePath, 'utf-8');
     const writeStream = createWriteStream(targetFilePath, 'utf-8');
 
@@ -142,6 +147,11 @@ const moveFile = async (pathToFile, pathToNewDirectory) => {
   try {
     const sourceFilePath = path.join(pathToFile);
     const targetFilePath = path.join(pathToNewDirectory, path.basename(sourceFilePath));
+
+    if (await isExist(targetFilePath)) {
+      console.log(`Operation failed. File '${targetFilePath}' already exists.`);
+      return;
+    }
 
     const readStream = createReadStream(sourceFilePath, 'utf-8');
     const writeStream = createWriteStream(targetFilePath, 'utf-8');
@@ -173,7 +183,7 @@ const osInfo = (arg) => {
     case '--cpus':
       console.log(
         cpus().map((cpu) => {
-          return { model: cpu.model, speed: (cpu.speed / 1000).toFixed(2)};
+          return { model: cpu.model, speed: (cpu.speed / 1000).toFixed(1)};
         })
       );
       break;
@@ -214,6 +224,11 @@ const compressFile = async (pathToFile, pathToDestination) => {
     return;
   }
   try {
+    if (await isExist(pathToDestination)) {
+      console.log(`Operation failed. File '${pathToDestination}' already exists.`);
+      return;
+    }
+
     const input = createReadStream(pathToFile, 'utf-8');
     const output = createWriteStream(pathToDestination);
     const brotli = zlib.createBrotliCompress();
@@ -230,6 +245,11 @@ const decompressFile = async (pathToFile, pathToDestination) => {
     return;
   }
   try {
+    if (await isExist(pathToDestination)) {
+      console.log(`Operation failed. File '${pathToDestination}' already exists.`);
+      return;
+    }
+
     const input = createReadStream(pathToFile);
     const output = createWriteStream(pathToDestination, 'utf-8');
     const brotli = zlib.createBrotliDecompress();
