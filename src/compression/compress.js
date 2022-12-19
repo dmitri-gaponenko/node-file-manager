@@ -1,7 +1,7 @@
 import { isExist } from '../utils/fileChecker.js';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import zlib from 'zlib';
+import { createBrotliCompress } from 'zlib';
 
 const compressFile = async (pathToFile, pathToDestination) => {
   if (!pathToFile || !pathToDestination) {
@@ -16,7 +16,7 @@ const compressFile = async (pathToFile, pathToDestination) => {
 
     const input = createReadStream(pathToFile, 'utf-8');
     const output = createWriteStream(pathToDestination);
-    const brotli = zlib.createBrotliCompress();
+    const brotli = createBrotliCompress();
 
     await pipeline(input, brotli, output);
   } catch (err) {

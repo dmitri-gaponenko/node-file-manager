@@ -1,4 +1,4 @@
-import readline from 'readline';
+import { createInterface } from 'readline';
 import { stdin, stdout, cwd, chdir } from 'process';
 import { EOL, homedir } from 'os';
 
@@ -71,7 +71,7 @@ const handle = async (text) => {
   printWorkingDirectoryMessage();
 };
 
-const rl = readline.createInterface({ input: stdin, output: stdout });
+const rl = createInterface({ input: stdin, output: stdout });
 
 const finish = () => {
   process.stdout.write(`Thank you for using File Manager, ${getUserNameFromArgs()}, goodbye!${EOL}`);
